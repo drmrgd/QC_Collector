@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE HTML>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <style type="text/css">
+    #description {
+      align: left;
+      margin-left: 200px;
+      margin-right: 200px;
+    }
+    body {
+      font-family: "Lucida Grande", "Lucida Sans Unicode", Verdana, Arial, Helvetica, sans-serif;
+      font-size: 14px;
+    }
+    .center { margin-left:auto; margin-right:auto; }
+    .help {cursor:help; border-bottom: 1px dotted #A9A9A9}
+    .hidden {display: none}
+    .header {
+      font-size: 16px; 
+      font-weight: bold;
+      margin-left: 200px;
+    }
+
+    #qc_collector label {
+      display: inline-block;
+      width: 200px;
+      text-align: right;
+      padding-left: 300px;
+    }
+    #qc_collector_submit {
+      padding-left: 200px;
+    }
+    #qc_collector div {
+      margin-top: 1em;
+    }
+    textarea {
+      vertical-align: top;
+      height: 5em;
+    }
+    .error {
+      display: none;
+      margin-left: 10px;
+    }
+    .error_show {
+      color: red;
+      margin-left: 10px;
+    }
+    input.invalid, textarea.invalid {
+      border: 2px solid red;
+    }
+    input.valid, textarea.valid {
+      border: 2px solid green;
+    }
+  </style>
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script>
+    $(document).ready(() => {
+        $.fn.serializeObject = function() {
+            var o = {};
+            var a = this.serializeArray();
+            $.each(a, function() {
+                if (o[this.name] != null) {
+                    if (!o[this.name].push) {
+                        o[this.name] = [o[this.name]];
+                    }
+                    o[this.name].push(this.value || '');
+                } else {
+                    o[this.name] = this.value || '';
+                }
+            });
+            return o
+        };
+
+        verify_entry = function($input, $name) {
+            if (name) {$input.removeClass("invalid").addClass("valid");}
+            else {$input.removeClass("valid").addClass("invalid");}
+        }
+
+        // Check that rest of fields that are not part of template prep block 
+        // are filled in.
+        $('#library_date, #dna_primer_lot, #rna_primer_lot, #lib_kit_lot, ' +
+                '#lib_quant_lot, #loading_reagents_lot, #seq_solutions_lot, ' +
+                '#seq_reagents_lot, #chip_lot').on('input', (event) => {
+            var input = $(event.currentTarget);
+            var is_name = $(input).val();
+            verify_entry($(input), $(is_name));
+        });
+
+        // Switch the template prep input boxes depending on type. Validate 
+        // entries.
+        $('#template_prep_method').on('change', (event) => {
+            var choice=$(event.currentTarget).val();
+            if (choice == 'ot2') {
+                $('.ot2').removeClass('hidden');
+                $('.chef').addClass('hidden');
+                $('#ot2_kit_lot').on('input', (event) => {
+                    var input = $(event.currentTarget);
+                    var is_name = $(input).val();
+                    verify_entry($(input), $(is_name));
+                });
+                // Set chef values as valid so that we don't fail validation
+                // later.
+                //$('.chef').find('input.chef').val('NA');
+
+                // XXX:This worked to set teh value, but the class is still 
+                // wrong (not getting updated), so this is not working.  Just
+                // change this to update the class to valid and I think we're
+                // good.
+
+                // Maybe like this:
+                //    $('.chef').children().addClass("valid");
+                $('.chef').children().val('NA');
+                $('.chef').children().addClass("valid");
+            }
+            else if (choice == 'chef') {
+                $('.ot2').addClass('hidden');
+                $('.chef').removeClass('hidden');
+                $('.chef').children('input').each((event) => {
+                    var input = $(event.currentTarget);
+                    var is_name = $(input).val();
+                    verify_entry($(input), $(is_name));
+                });
+            } 
+            else {
+                $('.ot2').addClass('hidden');
+                $('.chef').addClass('hidden');
+            }
+        });
+
+        $("#still_loading").hide();
+        $("#postbutton").show();
+
+        $("#postbutton").on('click', (event) => {
+            var form_data=$("#qc_collector").serializeArray();
+            var error_free=true;
+            // XXX
+            console.log(form_data);
+            for (var input in form_data) {
+                var element=$("qc_collector_"+form_data[input]['name']);
+                var valid=element.hasClass("valid");
+                var error_element=$("span", element.parent());
+                if (!valid) {
+                    console.log(element.attributes());
+                    error_element.removeClass("error").addClass("error_show");
+                    error_free = false;
+                } else {
+                    error_element.removeClass("error_show").addClass("error");
+                }
+            }
+            if (!error_free) {
+                alert("There are invalid entries in the form!  Please fill out all fields!");
+                event.preventDefault();
+            } else {
+                obj = $('#qc_collector').serializeObject();
+                pluginAPIJSON = {"plugin" : [TB_plugin.fields.name], "pluginconfig" : obj};
+                pluginAPIJSON = JSON.stringify(pluginAPIJSON);
+                console.log(pluginAPIJSON);
+                pluginURL = "/rundb/api/v1/results/" + TB_result + "/plugin/";
+                $.ajax({
+                    type: 'POST',
+                    url: pluginURL,
+                    async: false,
+                    contentTeyp: "application/json; charset=utf-8",
+                    success: function(data) {
+                        $("#json_result").html('<div style="text-align: center;"><img src="/site_media/jquery/colorbox/images/loading.gif" alt="Running Plugin" style="float:center"></img><p>Running The Plugin...</p></div>');
+                        setTimeout("parent.$.fn.colorbox.close()", 2000);
+                    },
+                    data: pluginAPIJSON,
+                    dataType: "json"
+                });
+            }
+        });
+    });
+
+  </script>
+</head>
+
+<body>
+  <div style="text-align:center">
+    <h1>MoCha Ion Torrent QC Collector Plugin</h1>
+  </div>
+
+  <div id="description">
+    <h3>Description and Usage Notes</h3>
+    <p>
+      This plugin will collect run data from an Ion Torrent OCA run, and generate
+      a CSV file of QC values that can be imported into the MoCha QC Tracking
+      database.  The use of this plugin will mitigate the need to manually
+      enter the majority of the data manually for the most part.
+    </p>
+    <p>
+      There are still, however, some data fields that do not carry over from 
+      the run plan, are not available to the Torrent Server, or are different
+      than what we currently track.  For example, the seuqencing solutions 
+      kit is not tracked in the Torrent Server, but the lot numbers of the 
+      individual components are.  As helpful as that sounds, we have no way to
+      connect these two values and so, we need to manually enter the sequencing
+      reagents lot number into this plugin to track.
+    </p>
+    <p>
+      To use this plugin, for enter information for each of the indicated fields
+      below, either by manually typing the values in or copy / pasting from 
+      an experiment workbook (for example), and then hit submit. The plugin
+      will collect the rest of the data, and then provide a download link, which
+      will allow one to finally get a CSV of the whole dataset.
+    </p>
+
+    <div style="text-align:center">
+      <h3>Run and Reagent Data</h3>
+    </div>
+  </div>
+
+  <form id="qc_collector" name="qc_collector" method="post" action="">
+    <span class="header">Library Prep Information</span>
+
+    <div>
+      <label for="library_date">Library Prep Date:</label>
+      <input type="date" id="library_date" name="library_date">
+      <span class="error">A valid Library prep date is required!</span>
+    </div>
+
+    <div>
+      <label for="dna_primer_lot">DNA Primer Lot #:</label>
+      <input type="text" id="dna_primer_lot" name="dna_primer_lot">
+      <span class="error">A valid DNA Primer Lot number is required!</span>
+    </div>
+
+    <div>
+      <label for="rna_primer_lot">RNA Primer Lot #:</label>
+      <input type="text" id="rna_primer_lot" name="rna_primer_lot">
+      <span class="error">A valid RNA primer lot number is required!</span>
+    </div>
+
+    <div>
+      <label for="lib_kit_lot">Library Prep Kit Lot#:</label>
+      <input type="text" id="lib_kit_lot" name="lib_kit_lot">
+      <span class="error">A valid Library Prep kit lot number is required!</span>
+    </div>
+
+    <div>
+      <label for="lib_quant_lot">Library Quant Kit Lot#:</label>
+      <input type="text" id="lib_quant_lot" name="lib_quant_lot">
+      <span class="error">A valid Library Quant kit lot number is required!</span>
+    </div>
+
+    <div class=header>Template Prep Information</div>
+    <div>
+      <label for="template_prep_method">Template Prep Method:</label>
+      <select id="template_prep_method" name="template_prep_method">
+        <option selected="none">Choose a method</option>
+        <option value="ot2">OneTouch2</option>
+        <option value="chef">Ion Chef</option>
+      </select>
+      <span class="error">A Template Prep method must be chosen!</span>
+    </div>
+
+    <div class="hidden ot2">
+      <label for="ot2_kit_lot">OT2 Kit Lot#:</label>
+      <input type="text" id="ot2_kit_lot" name="ot2_kit_lot">
+      <span class="error">A valid OT2 kit lot number is required!</span>
+    </div>
+
+    <div class="hidden chef">
+      <label for="chef_supplies_lot">Chef Supplies Lot #:</label>
+      <input type="text" id="chef_supplies_lot" name="chef_supplies_lot">
+      <span class="error">A valid Chef Supplies kit lot number is required!</span>
+    </div>
+
+    <div class="hidden chef">
+      <label for="chef_reagents_lot">Chef Reagents Lot #:</label>
+      <input type="text" id="chef_reagents_lot" name="chef_reagents_lot">
+      <span class="error">A valid Chef Reagents kit lot number is required!</span>
+    </div>
+
+    <div class="hidden chef">
+      <label for="chef_solutions_lot">Chef Solutions Lot #:</label>
+      <input type="text" id="chef_solutions_lot" name="chef_solutions_lot">
+      <span class="error">A valid Chef Solutions kit lot number is required!</span>
+    </div>
+
+    <div class=header>Sequencing Materials Information</div>
+    <div>
+      <label for="loading_reagents_lot">Loading Reagents Lot#:</label>
+      <input type="text" id="loading_reagents_lot" name="loading_reagents_lot">
+      <span class="error">A valid loading reagents lot number is required!</span>
+    </div>
+
+    <div>
+      <label for="seq_solutions_lot">Sequencing Solutions Lot #:</label>
+      <input type="text" id="seq_solutions_lot" name="seq_solutions_lot">
+      <span class="error">A valid Sequencing Solutions lot number is required!</span>
+    </div>
+
+    <div>
+      <label for="seq_reagents_lot">Sequencing Reagents Lot #:</label>
+      <input type="text" id="seq_reagents_lot" name="seq_reagents_lot">
+      <span class="error">A valid Sequencing Reagents lot number is required!</span>
+    </div>
+
+    <div>
+      <label for="chip_lot">Chip Box Lot #:</label>
+      <input type="text" id="chip_lot" name="chip_lot">
+      <span class="error">A valid Chip Box lot number is required!</span>
+    </div>
+
+    <br>
+    <div align="center" id="json_result">
+      <input id="postbutton" type="submit" value="Submit" style="display:none">
+    </div>
+  </form>
+</body>
+</html>
