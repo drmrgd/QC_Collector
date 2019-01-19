@@ -73,8 +73,8 @@
         };
 
         verify_entry = function($input, $name) {
-            if (name) {$input.removeClass("invalid").addClass("valid");}
-            else {$input.removeClass("valid").addClass("invalid");}
+            if ($name) {$input.removeClass("invalid").addClass("valid");}
+            else {console.log('bad entry!'); $input.removeClass("valid").addClass("invalid");}
         }
 
         // Check that rest of fields that are not part of template prep block 
@@ -94,6 +94,8 @@
             if (choice == 'ot2') {
                 $('.ot2').removeClass('hidden');
                 $('.chef').addClass('hidden');
+
+                // Verify OT2 data an set chef NA's.
                 $('#ot2_kit_lot').on('input', (event) => {
                     var input = $(event.currentTarget);
                     var is_name = $(input).val();
@@ -101,32 +103,46 @@
                 });
                 // Set chef values as valid so that we don't fail validation
                 // later.
-                //$('.chef').find('input.chef').val('NA');
-
-                // XXX:This worked to set teh value, but the class is still 
-                // wrong (not getting updated), so this is not working.  Just
-                // change this to update the class to valid and I think we're
-                // good.
-
-                // Maybe like this:
-                //    $('.chef').children().addClass("valid");
+                /* TODO:
+                   This is not working. Maybe.  Need to follow up on this
+                   to make sure we're getting .class = valid.
+                */
                 $('.chef').children().val('NA');
                 $('.chef').children().addClass("valid");
             }
             else if (choice == 'chef') {
                 $('.ot2').addClass('hidden');
                 $('.chef').removeClass('hidden');
+
+                // Verify chef data an set OT2 NA's.
+                /* TODO:
+                   This is not working.  The values are there, but the verify
+                   bit is not working.  Need to figure out why, and I think I"m 
+                   just not passing the correct obj.
+                */
                 $('.chef').children('input').each((event) => {
                     var input = $(event.currentTarget);
                     var is_name = $(input).val();
                     verify_entry($(input), $(is_name));
                 });
+                //$('#ot2_kit_lot').val('NA').addClass("valid");
+                $('#ot2_kit_lot').addClass("valid");
             } 
             else {
                 $('.ot2').addClass('hidden');
                 $('.chef').addClass('hidden');
             }
         });
+
+        /*
+        if ($('#template_prep_method').val() == 'ot2') {
+          console.log("Template prep method is OT2.");
+        }
+        else if ($('#template_prep_method').val() == "chef") {
+          console.log("Template prep method is Ion Chef.");
+        }
+        */
+
 
         $("#still_loading").hide();
         $("#postbutton").show();
@@ -138,10 +154,10 @@
             console.log(form_data);
             for (var input in form_data) {
                 var element=$("qc_collector_"+form_data[input]['name']);
+              console.log(form_data[input]['name'] +' ==> '+ form_data[input]['value']);
                 var valid=element.hasClass("valid");
                 var error_element=$("span", element.parent());
                 if (!valid) {
-                    console.log(element.attributes());
                     error_element.removeClass("error").addClass("error_show");
                     error_free = false;
                 } else {
@@ -152,6 +168,8 @@
                 alert("There are invalid entries in the form!  Please fill out all fields!");
                 event.preventDefault();
             } else {
+                console.log("Looks like everything's in order. Let's send it!");
+              /*
                 obj = $('#qc_collector').serializeObject();
                 pluginAPIJSON = {"plugin" : [TB_plugin.fields.name], "pluginconfig" : obj};
                 pluginAPIJSON = JSON.stringify(pluginAPIJSON);
@@ -169,6 +187,7 @@
                     data: pluginAPIJSON,
                     dataType: "json"
                 });
+                */
             }
         });
     });
