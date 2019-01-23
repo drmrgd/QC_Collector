@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="iso-8859-1"?>
 <!DOCTYPE HTML>
+<html>
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <style type="text/css">
@@ -27,9 +28,6 @@
       text-align: right;
       padding-left: 300px;
     }
-    #qc_collector_submit {
-      padding-left: 200px;
-    }
     #qc_collector div {
       margin-top: 1em;
     }
@@ -53,80 +51,92 @@
     }
   </style>
 
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-  <script>
+  <!--NOTE: I can't use v1.6.1 that seems to be used in all plugins because it
+      lacks the $().on function that I would like to use.  I also can't use the
+      v3.3.1 version that is the most recent because it can't find other elements
+      needed to run the colorbox.close() function.  So, I'm using the latest version
+      that is built in.  Would like to figure out a way to update this, though!
+  -->
+  <!--<script src="/site_media/jquery/js/jquery-1.6.1.min.js"></script>-->
+  <!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>-->
+  <script src="/site_media/jquery/js/jquery-1.7.2.min.js"></script>
+
+  <script type="text/javascript">
+
     $(document).ready(() => {
+        $.ajaxSetup({async: false});
+        var reportUrl = '/rundb/api/v1/results/' + 
+            TB_result + '/?format=json&nopluin=True';
+
+        $.get(reportUrl, function(data) {
+          pluginOutDir = data.filesystempath + '/plugin_out/';
+        });
+
         $.fn.serializeObject = function() {
-            var o = {};
-            var a = this.serializeArray();
-            $.each(a, function() {
-                if (o[this.name] != null) {
-                    if (!o[this.name].push) {
-                        o[this.name] = [o[this.name]];
-                    }
-                    o[this.name].push(this.value || '');
-                } else {
-                    o[this.name] = this.value || '';
-                }
-            });
-            return o
+          var o = {};
+          var a = this.serializeArray();
+          $.each(a, function() {
+            if (o[this.name] != null) {
+              if (!o[this.name].push) {
+                o[this.name] = [o[this.name]];
+              }
+              o[this.name].push(this.value || '');
+            } else {
+              o[this.name] = this.value || '';
+            }
+          });
+          return o
         };
 
         verify_entry = function($input, $name) {
             if ($name) {$input.removeClass("invalid").addClass("valid");}
-            else {console.log('bad entry!'); $input.removeClass("valid").addClass("invalid");}
-        }
+            else {console.log('bad entry!');$input.removeClass("valid").addClass("invalid");}
+            console.log($input.attr("class"));
+        };
 
-        // Check that rest of fields that are not part of template prep block 
-        // are filled in.
         $('#library_date, #dna_primer_lot, #rna_primer_lot, #lib_kit_lot, ' +
-                '#lib_quant_lot, #loading_reagents_lot, #seq_solutions_lot, ' +
-                '#seq_reagents_lot, #chip_lot').on('input', (event) => {
-            var input = $(event.currentTarget);
-            var is_name = $(input).val();
-            verify_entry($(input), $(is_name));
+          '#lib_quant_lot, #loading_reagents_lot, #seq_solutions_lot, ' +
+          '#seq_reagents_lot, #chip_lot').on('input', (event) => {
+          var input = $(event.currentTarget);
+          var is_name = input.val();
+          verify_entry(input, is_name);
         });
 
         // Switch the template prep input boxes depending on type. Validate 
         // entries.
         $('#template_prep_method').on('change', (event) => {
             var choice=$(event.currentTarget).val();
-            if (choice == 'ot2') {
-                $('.ot2').removeClass('hidden');
-                $('.chef').addClass('hidden');
+            $('#template_prep_method').removeClass("invalid").addClass("valid");
 
-                // Verify OT2 data an set chef NA's.
-                $('#ot2_kit_lot').on('input', (event) => {
-                    var input = $(event.currentTarget);
-                    var is_name = $(input).val();
-                    verify_entry($(input), $(is_name));
-                });
-                // Set chef values as valid so that we don't fail validation
-                // later.
-                /* TODO:
-                   This is not working. Maybe.  Need to follow up on this
-                   to make sure we're getting .class = valid.
-                */
-                $('.chef').children().val('NA');
-                $('.chef').children().addClass("valid");
+            if (choice == 'ot2') {
+              $('.ot2').removeClass('hidden');
+              $('.chef').addClass('hidden');
+
+              // Verify OT2 data an set chef NA's.
+              $('#ot2_kit_lot').on('input', (event) => {
+                var input = $(event.currentTarget);
+                var is_name = input.val();
+                verify_entry(input, is_name);
+              });
+              
+              // Set chef values as valid so that we don't fail validation
+              // later.
+              $('.chef').children().val('NA');
+              $('.chef').children().removeClass("invalid").addClass("valid");
             }
             else if (choice == 'chef') {
-                $('.ot2').addClass('hidden');
-                $('.chef').removeClass('hidden');
+              $('.ot2').addClass('hidden');
+              $('.chef').removeClass('hidden');
 
-                // Verify chef data an set OT2 NA's.
-                /* TODO:
-                   This is not working.  The values are there, but the verify
-                   bit is not working.  Need to figure out why, and I think I"m 
-                   just not passing the correct obj.
-                */
-                $('.chef').children('input').each((event) => {
-                    var input = $(event.currentTarget);
-                    var is_name = $(input).val();
-                    verify_entry($(input), $(is_name));
-                });
-                //$('#ot2_kit_lot').val('NA').addClass("valid");
-                $('#ot2_kit_lot').addClass("valid");
+              // Verify chef data an set OT2 NA's.
+              $('.chef').children().on('input', (event) => {
+                var input = $(event.currentTarget);
+                var is_name = input.val();
+                verify_entry(input, is_name);
+              });
+                // Set OT2 input to valid just to pass validation.
+                $('#ot2_kit_lot').val('NA').addClass("valid");
+                $('#ot2_kit_lot').removeClass("invalid").addClass("valid");
             } 
             else {
                 $('.ot2').addClass('hidden');
@@ -134,60 +144,48 @@
             }
         });
 
-        /*
-        if ($('#template_prep_method').val() == 'ot2') {
-          console.log("Template prep method is OT2.");
-        }
-        else if ($('#template_prep_method').val() == "chef") {
-          console.log("Template prep method is Ion Chef.");
-        }
-        */
-
-
-        $("#still_loading").hide();
-        $("#postbutton").show();
-
-        $("#postbutton").on('click', (event) => {
+        $("#postbutton").click(function(event) {
+            console.log("submitting data....");
             var form_data=$("#qc_collector").serializeArray();
             var error_free=true;
-            // XXX
-            console.log(form_data);
             for (var input in form_data) {
-                var element=$("qc_collector_"+form_data[input]['name']);
-              console.log(form_data[input]['name'] +' ==> '+ form_data[input]['value']);
+                var element=$("#"+form_data[input]['name']);
                 var valid=element.hasClass("valid");
                 var error_element=$("span", element.parent());
+
                 if (!valid) {
+                    //console.log('element: ' + form_data[input]['name'] + ' is invalid.');
                     error_element.removeClass("error").addClass("error_show");
                     error_free = false;
                 } else {
                     error_element.removeClass("error_show").addClass("error");
                 }
             }
+
             if (!error_free) {
                 alert("There are invalid entries in the form!  Please fill out all fields!");
                 event.preventDefault();
             } else {
-                console.log("Looks like everything's in order. Let's send it!");
-              /*
                 obj = $('#qc_collector').serializeObject();
                 pluginAPIJSON = {"plugin" : [TB_plugin.fields.name], "pluginconfig" : obj};
                 pluginAPIJSON = JSON.stringify(pluginAPIJSON);
-                console.log(pluginAPIJSON);
                 pluginURL = "/rundb/api/v1/results/" + TB_result + "/plugin/";
+               //TODO: This is all working (plugin launches and data gets into config JSON file.
+               //      but for some reason I can't get teh plugin box to close.  Maybe there is 
+               //      a jQuery version issue here?  
                 $.ajax({
                     type: 'POST',
                     url: pluginURL,
                     async: false,
-                    contentTeyp: "application/json; charset=utf-8",
+                    contentType: "application/json; charset=utf-8",
                     success: function(data) {
-                        $("#json_result").html('<div style="text-align: center;"><img src="/site_media/jquery/colorbox/images/loading.gif" alt="Running Plugin" style="float:center"></img><p>Running The Plugin...</p></div>');
+                        $("#json_result").html('<div style="text-align: center;"><img src="/site_media/jquery/colorbox/images/loading.gif" alt="Running Plugin" style="float: center"></img><p>Running The Plugin...</p></div>');
                         setTimeout("parent.$.fn.colorbox.close()", 2000);
+
                     },
                     data: pluginAPIJSON,
                     dataType: "json"
                 });
-                */
             }
         });
     });
@@ -230,7 +228,7 @@
     </div>
   </div>
 
-  <form id="qc_collector" name="qc_collector" method="post" action="">
+  <form id="qc_collector" name="qc_collector">
     <span class="header">Library Prep Information</span>
 
     <div>
@@ -322,10 +320,9 @@
       <input type="text" id="chip_lot" name="chip_lot">
       <span class="error">A valid Chip Box lot number is required!</span>
     </div>
-
     <br>
     <div align="center" id="json_result">
-      <input id="postbutton" type="submit" value="Submit" style="display:none">
+        <input id="postbutton" type="submit" value="Submit">
     </div>
   </form>
 </body>
