@@ -11,10 +11,11 @@ class QC_Collector(IonPlugin):
     Plugin to collect QC metrics from an Ion Torrent run, and generate a CSV
     file that can be loading into tracking databases downstream.
     """
-    version = '0.2.012219'
+    version = '0.5.012819'
     major_block = False
     runtypes = [RunType.FULLCHIP, RunType.THUMB, RunType.COMPOSITE]
     runlevels = [RunLevel.DEFAULT]
+    depends = ['coverageAnalysis']
 
     def launch(self, data=None):
         sys.stderr.write('Writing output to "data.csv"\n')
