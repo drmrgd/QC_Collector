@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <style type="text/css">
+    #description {
+      align: left;
+      margin-left: 100px;
+      margin-right: 100px;
+    }
+    body {
+      font-family: "Lucida Grande", "Lucida Sans Unicode", Verdana, Arial, Helvetica, sans-serif;
+      font-size: 14px;
+    }
+    .center { margin-left:auto; margin-right:auto; }
+    #pluginconfig label {
+      display: inline-block;
+      width: 200px;
+      text-align: right;
+      padding-left: 200px;
+    }
+    #pluginconfig div {
+      margin-top: 1em;
+    }
+    .error {
+      display: none;
+      margin-left: 10px;
+    }
+    .error_show {
+      color: red;
+      margin-left: 10px;
+    }
+    input.invalid, textarea.invalid {
+      border: 2px solid red;
+    }
+    input.valid, textarea.valid {
+      border: 2px solid green;
+    }
+    textarea {
+        vertical-align: top;
+        width: 300px;
+        height: 50px;
+    }
+  </style>
+
+  <script src="/site_media/jquery/js/jquery-1.7.2.min.js"></script>
+  <script type="text/javascript">
+    pluginGET = "";
+
+    $(document).ready(() => {
+        $.ajax({
+            url : "/rundb/api/v1/plugin/" + TB_plugin.pk + "?format=json",
+            dataType : "json",
+            type: "GET",
+            async: false,
+            success:function(data) {
+                console.log(data);
+                pluginGET = data;
+
+                $.each(pluginGET.config, function(key,val) {
+                    if (key == "ip_address") {
+                        document.getElementById("ip_address").value = val;
+                    }
+                    else if (key == "api_token") {
+                        document.getElementById("api_token").value = val;
+                    }
+                });
+            }
+        });
+
+        $.fn.serializeObject = function() {
+          var o = {};
+          var a = this.serializeArray();
+          $.each(a, function() {
+            if (o[this.name] != null) {
+              if (!o[this.name].push) {
+                o[this.name] = [o[this.name]];
+              }
+              o[this.name].push(this.value || '');
+            } else {
+              o[this.name] = this.value || '';
+            }
+          });
+          return o
+        };
+
+        $('#ip_address').on('input', (event) => {
+          var input = $(event.currentTarget);
+          var regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+          var is_ip = regex.test(input.val());
+          if (is_ip) {input.removeClass("invalid").addClass("valid");}
+          else {input.removeClass("valid").addClass("invalid");}
+          console.log(input.attr('name') + ' class: ' + input.attr('class'));
+        });
+
+        $('#api_token').on('input', (event) => {
+          var input = $(event.currentTarget);
+          var is_token = input.val();
+          if (is_token) {input.removeClass("invalid").addClass('valid');}
+          else {input.removeClass('valid').addClass('invalid');}
+          console.log(input.attr('name') + ' class: ' + input.attr('class'));
+        });
+
+        $("#form_submit button").click(function(event) {
+            var form_data=$("#pluginconfig").serializeArray();
+            var error_free=true;
+            for (var input in form_data) {
+                var element=$("#"+form_data[input]['name']);
+                // XXX
+                console.log(element.attr('name') + '(value: ' 
+                        + element.attr('value') + ') <class: ' + element.attr('class') + '>');
+
+                /* If we are just making a minor mod (e.g. keeping same IP but updating the 
+                   token), then we can't pass validation unless we re-enter all fields. Do
+                   a check here to bypass that.
+                */
+                if (element.attr('value') && ! element.attr('class')) {
+                  element.addClass('valid');
+                }
+
+                var valid=element.hasClass("valid");
+                var error_element=$("span", element.parent());
+
+                if (!valid) {
+                    error_element.removeClass("error").addClass("error_show");
+                    error_free = false;
+                } else {
+                    error_element.removeClass("error_show").addClass("error");
+                }
+            }
+
+            if (!error_free) {
+                alert("There are invalid entries in the form! Please fill out "
+                  + "all fields!");
+                event.preventDefault();
+            } else {
+                obj = $('#pluginconfig').serializeObject();
+                console.log("Submitting form data...");
+                console.log(obj);
+
+                pluginGET.config = obj;
+                pluginAPIJSON = JSON.stringify(pluginGET);
+                pluginURL = "/rundb/api/v1/plugin/" +TB_plugin.pk+ "?format=json";
+                $.ajax({
+                    type: 'PUT',
+                    url: pluginURL,
+                    contentType: "application/json; charset=utf-8",
+                    data: pluginAPIJSON,
+                    success: function(data) {parent.$.fn.colorbox.close();},
+                    dataType: "json"
+                });
+            }
+        });
+    });
+
+  </script>
+</head>
+
+<body>
+  <div style="text-align:center">
+    <h1>QC Collector Plugin Global Settings</h1>
+  </div>
+
+  <div id="description">
+      <p>Input the IP address of the Ion Reporter server for which you want to obtain
+      data, as well as a valid API token (can be any user). This will be the default
+      account used to connect, and if one needs to use a different account at run 
+      time, one can be set up then in the run plan.
+      </p>
+  </div>
+  </br>
+
+  <form id="pluginconfig" method="post" action="">
+    <div>
+      <label for="ip_address">IR Server IP Address:</label>
+      <input type="text" id="ip_address" name="ip_address">
+      <span class="error">A valid IP address is required.</span>
+    </div>
+
+    <div>
+      <label for="api_token">IR API Token:</label>
+      <textarea id="api_token" name="api_token" style="width: 300px;"></textarea>
+      <span class="error">A valid API Token is required.</span>
+    </div>
+
+    <div id="form_submit" align="center">
+      <input type="hidden" id="launch_mode" name="launch_mode" value="Autostart with plan plugin configuration"/>
+    </div>
+  </form>
+</body>
+</html>

@@ -51,16 +51,7 @@
     }
   </style>
 
-  <!--NOTE: I can't use v1.6.1 that seems to be used in all plugins because it
-      lacks the $().on function that I would like to use.  I also can't use the
-      v3.3.1 version that is the most recent because it can't find other elements
-      needed to run the colorbox.close() function.  So, I'm using the latest version
-      that is built in.  Would like to figure out a way to update this, though!
-  -->
-  <!--<script src="/site_media/jquery/js/jquery-1.6.1.min.js"></script>-->
-  <!--<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>-->
   <script src="/site_media/jquery/js/jquery-1.7.2.min.js"></script>
-
   <script type="text/javascript">
 
     $(document).ready(() => {
@@ -170,9 +161,6 @@
                 pluginAPIJSON = {"plugin" : [TB_plugin.fields.name], "pluginconfig" : obj};
                 pluginAPIJSON = JSON.stringify(pluginAPIJSON);
                 pluginURL = "/rundb/api/v1/results/" + TB_result + "/plugin/";
-               //TODO: This is all working (plugin launches and data gets into config JSON file.
-               //      but for some reason I can't get teh plugin box to close.  Maybe there is 
-               //      a jQuery version issue here?  
                 $.ajax({
                     type: 'POST',
                     url: pluginURL,
