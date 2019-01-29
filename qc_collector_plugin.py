@@ -13,14 +13,18 @@ import csv
 import inspect
 import argparse
 import subprocess
+import datetime
 
+from collections import defaultdict
 from pprint import pprint as pp
+from pprint import pformat
 
 # Global vars
 loglevel = 'debug'
 logfile = sys.stderr
-plugin_params = {}
-plugin_results = {}
+plugin_params = defaultdict(dict)
+plugin_results = defaultdict(dict)
+
 
 def get_plugin_config():
     """
@@ -38,23 +42,25 @@ def get_plugin_config():
 
     plugin_params['version'] = args.version
 
+    # Start first with startplugin.json
     start_plugin_json = read_json(args.start_plugin_file)
 
     plugin_params['plan_name'] = start_plugin_json['plan'].get('planName', None)
     instrument = start_plugin_json['expmeta'].get('instrument', None)
-
-    plugin_params['instrument'] = plugin_results['instrument'] = instrument
-
+    plugin_params['instrument'] = plugin_results['chip_data']['instrument'] = instrument
     plugin_params['results_name'] = start_plugin_json['expmeta'].get(
         'results_name', None)
     plugin_params['analysis_dir'] = start_plugin_json['runinfo'].get(
         'analysis_dir', None)
     plugin_params['plugin_results'] = start_plugin_json['runinfo'].get(
         'results_dir', None)
-    plugin_params['pluginconfig']['ir_ip'] = start_plugin_json['runinfo']['plugin']['pluginconfig'].get('ip_address', None)
-    plugin_params['pluginconfig']['ir_token'] = start_plugin_json['runinfo']['plugin']['pluginconfig'].get('api_token', None)
-    plugin_params['plugin_root'] = start_plugin_json['runinfo']['plugin'].get(
-        'plugin_dir', None)
+
+    # TODO: Fix this path when we deploy
+    # plugin_params['plugin_root'] = start_plugin_json['runinfo'].get(
+        # 'plugin_dir', None)
+    plugin_params['plugin_root'] = os.path.dirname(os.path.abspath(__file__))
+    plugin_params['ir_ip'] = start_plugin_json['runinfo']['plugin']['pluginconfig'].get('ip_address', None)
+    plugin_params['ir_token'] = start_plugin_json['runinfo']['plugin']['pluginconfig'].get('api_token', None)
 
     # Get some results from some of the data collected so far.
     regex = re.compile('Auto.*?%s-([0-9]{3})-%s_[0-9]+$' %
@@ -64,17 +70,39 @@ def get_plugin_config():
     plugin_results['chip_data']['analysis_date'] = start_plugin_json['expmeta'].get(
         'analysis_date', None)
 
-    plugin_results['chip_data']['pluginconfig'] = start_plugin_json['pluginconfig']
+    plugin_results['chip_data'].update(start_plugin_json['pluginconfig'])
 
+    # Now read samples from barcodes.json
+    bc_json = read_json(args.barcodes_file)
+    plugin_results['sample_data'] = get_samples(bc_json)
 
-    pp(plugin_params)
-    print()
-    pp(plugin_results)
-    sys.exit()
     '''
-    TODO: Here would be a good place to proc the barcodes file to start filling
-    out those data.
+    DEBUG
     '''
+    writelog('debug', "Data as obtained by startplugin.json and barcodes.json")
+    writelog('debug', 'params dict:\n\t%s\n' % pformat(dict(plugin_params), indent=8))
+    writelog('debug', 'results dict:\n\t%s\n' % pformat(dict(plugin_results), indent=8))
+
+def get_samples(bc_json):
+    """
+    Parse the barcodes.json file to get a sample manifest for which we'll collect
+    data. Need to filter out anything that's a filler sample and / or not part 
+    of a clinical sequencing run.
+    """
+    samples = defaultdict(dict)
+    wanted_elems = ('sample', 'nucleotide_type', 'read_count')
+    unwanted_samples = ('filler', 'ntc')
+
+    for barcode in bc_json:
+        sample = bc_json[barcode]['sample']
+        if not any(x in sample.lower() for x in unwanted_samples):
+            nt_type = bc_json[barcode]['nucleotide_type']
+            samples[sample][nt_type] = defaultdict(dict)
+            samples[sample][nt_type]['barcode'] = barcode
+            samples[sample][nt_type].update(
+                dict((x, bc_json[barcode][x]) for x in wanted_elems)
+            )
+    return dict(samples)
 
 def get_chip_metrics(basecaller_file, serialized_json):
     """
@@ -233,13 +261,16 @@ def writelog(flag, msg):
 
     if flag is not None:
         flag = flag.lower() # Make sure it's lowercase to avoid key error
-        tier, annot = log_levels.get(level, None)
+        tier, annot = log_levels.get(flag, None)
         annot = 'something wrong' if annot == None else annot
         logstr = '{:26s} {:6s} {}\n'.format(now, annot, msg)
 
         if tier <= log_threshold:
             logfile.write(logstr)
             logfile.flush()
+    else:
+        logfile.write('\t%s\n' % msg)
+        logfile.flush()
 
 def __exit__(msg=None):
     sys.stderr.write('\n\033[38;5;196mExited at line: {}, with message: '
@@ -247,8 +278,31 @@ def __exit__(msg=None):
     sys.exit()
 
 def plugin_main():
+    writelog('info', 'QC Collector version has started.')
+
     get_plugin_config()
-    # pp(plugin_params)
+    writelog('info', 'Run configuration: ')
+    writelog(None, 'Plugin version: {}'.format(plugin_params['version']))
+    writelog(None, 'Plugin root directory: {}'.format(
+        plugin_params['plugin_root']))
+    writelog(None, 'Run name: {}'.format(plugin_params['results_name']))
+    writelog(None, 'Results dir: {}'.format(plugin_params['plugin_results']))
+    writelog(None, 'Log level is %s' % loglevel)
+
+    writelog(None, 'Valid barcodes:')
+    count = 0
+    for samp in plugin_results['sample_data']:
+        for nt in ('DNA', 'RNA'):
+            try:
+                bc = plugin_results['sample_data'][samp][nt]['barcode']
+            except KeyError:
+                # we don't have that nucleic acid type.
+                continue
+            writelog(None, '\t{}: {}'.format(bc, samp))
+            count += 1
+    writelog('info', 'There are %i samples to process.' % count)
+
+    __exit__()
 
     '''
     TODO: Fix this for plugin
@@ -263,6 +317,8 @@ def plugin_main():
         'serialized_%s.json' % plugin_params['results_name'])
 
     get_chip_metrics(basecaller_json, serialized_json)
+
+
     pp(plugin_results)
     __exit__()
 
