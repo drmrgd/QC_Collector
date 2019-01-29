@@ -24,6 +24,7 @@ loglevel = 'debug'
 logfile = sys.stderr
 plugin_params = defaultdict(dict)
 plugin_results = defaultdict(dict)
+plugin_samples = {}
 
 
 def get_plugin_config():
@@ -109,53 +110,69 @@ def get_chip_metrics(basecaller_file, serialized_json):
     Read the BaseCaller.json and serialized_<expt>.json files, and extract
     the pertinent info.
     """
+    results = {}
+    writelog('info', 'Extracting chip level data from "%s" and "%s".' % (
+        os.path.basename(basecaller_file), os.path.basename(serialized_json)))
 
     # Read the important data from serialized JSON first. Will need later.
     ser_data = read_json(serialized_json)
+
     for block in ser_data:
         if block['model'] == 'rundb.analysismetrics':
-            plugin_results['unfiltered_lib_reads'] = block['fields']['lib']
-            plugin_results['filtered_lib_reads']   = block['fields']['libFinal']
-            plugin_results['bead_load_pct']        = block['fields']['loading']
+            results['unfiltered_lib_reads'] = block['fields']['lib']
+            results['filtered_lib_reads']   = block['fields']['libFinal']
+            results['bead_load_pct']        = block['fields']['loading']
         elif block['model'] == 'rundb.libmetrics':
-            plugin_results['key_signal']    = block['fields']['aveKeyCounts']
-            plugin_results['mean_raw_acc']  = block['fields']['raw_accuracy']
+            results['key_signal']    = block['fields']['aveKeyCounts']
+            results['mean_raw_acc']  = block['fields']['raw_accuracy']
 
     # Now get the metrics from the BC data file.
     bc_data = read_json(basecaller_file)['Filtering']['LibraryReport']
     for elem in bc_data:
-        plugin_results[elem] = '%0.1f' % float(
-            int(bc_data[elem]) / int(plugin_results['unfiltered_lib_reads']) * 100
+        results[elem] = '%0.1f' % float(
+            int(bc_data[elem]) / int(results['unfiltered_lib_reads']) * 100
         )
-
     # Rename the "final_library_reads" to usable reads to match the final
     # output, and to better represent what we have here.  We have the 
     # actual final library reads number elsewhere.
-    plugin_results['usable_lib_pct'] = plugin_results.pop('final_library_reads')
+    results['usable_lib_pct'] = results.pop('final_library_reads')
+
+    # TODO: Maybe we can put a pass / fail in this step just for a little 
+    #       eye candy or whatever.
+
+    plugin_results['chip_data'].update(results)
     
-def get_sample_stats(sample_list):
+def get_sample_stats():
     """
     Get the basic sample level stats.  Will add more data from the VCFs later.
-
-    TODO: Need to get paths to the <sample>_rawlib.ionstats_alignment.json files.
     """
-
     results = {}
+    writelog('info', 'Getting sample data from "ionstats_alignment" files.')
+
+    # TODO: Need to get paths to the <sample>_rawlib.ionstats_alignment.json files.
+    writelog('debug', '============>  Temporary file dir being used.  FIXME'
+            '  <==============')
+    # file_dir = plugin_params['analysis_dir']
+    file_dir = os.path.join(os.path.dirname(__file__), 'work_dir',
+        'resource_files')
 
     # Proces all samples in the list. Store DNA and RNA separately.
-    for sample in sample_list:
-        ionstats_file = file_dir + '/%s_rawlib.ionstats_alignment.json' % sample
+    # for sample in sample_list:
+    for bc, sample in plugin_samples.items():
+        ionstats_file = file_dir + '/%s_rawlib.ionstats_alignment.json' % bc
         if os.path.exists(ionstats_file):
-            results[sample_list[sample]] = read_ionstats_file(ionstats_file, 'sample')
+            results[sample] = read_ionstats_file(ionstats_file, 'sample')
+            for nt in plugin_results['sample_data'][sample].values():
+                if bc == nt['barcode']:
+                    nt.update(read_ionstats_file(ionstats_file, 'sample'))
+                    continue
         else:
-            writelog('error', 'No ionstats_alignment file for %s!\n' % sample_list[sample])
+            writelog('error', 'No ionstats_alignment file for %s!\n' % sample)
             sys.exit(1)
 
     # Add in the test fragment data
-    results['tf_1'] = read_ionstats_file('%s/TFStats.json' % file_dir, 'tf')
-
-    # TODO: Do we want to update the main dict?
-    return results
+    plugin_results['chip_data']['tf_1'] = read_ionstats_file(
+        '%s/TFStats.json' % file_dir, 'tf')
 
 def read_ionstats_file(ifile, sample_type):
     jdata = read_json(ifile)
@@ -281,6 +298,10 @@ def plugin_main():
     writelog('info', 'QC Collector version has started.')
 
     get_plugin_config()
+
+    # Keep track of barcode : sampleid for mapping throughout.
+    global plugin_samples
+
     writelog('info', 'Run configuration: ')
     writelog(None, 'Plugin version: {}'.format(plugin_params['version']))
     writelog(None, 'Plugin root directory: {}'.format(
@@ -295,14 +316,13 @@ def plugin_main():
         for nt in ('DNA', 'RNA'):
             try:
                 bc = plugin_results['sample_data'][samp][nt]['barcode']
+                plugin_samples[bc] = samp
             except KeyError:
                 # we don't have that nucleic acid type.
                 continue
             writelog(None, '\t{}: {}'.format(bc, samp))
             count += 1
     writelog('info', 'There are %i samples to process.' % count)
-
-    __exit__()
 
     '''
     TODO: Fix this for plugin
@@ -311,19 +331,23 @@ def plugin_main():
     serialized_json = os.path.join(plugin_params['analysis_dir'], 
         'serialized_%s.json' % plugin_params['results_name'])
     '''
-    basecaller_json = os.path.join(os.path.dirname(__file__), 'resource_files',
-        'BaseCaller.json')
-    serialized_json = os.path.join(os.path.dirname(__file__), 'resource_files',
-        'serialized_%s.json' % plugin_params['results_name'])
+    basecaller_json = os.path.join(os.path.dirname(__file__), 'work_dir',
+        'resource_files','BaseCaller.json')
+    serialized_json = os.path.join(os.path.dirname(__file__), 'work_dir',
+        'resource_files', 'serialized_%s.json' % plugin_params['results_name'])
 
+    # Finish getting the chip level metrics.
     get_chip_metrics(basecaller_json, serialized_json)
 
+    # Start collecting the sample level metrics. Get the mean_read_length_data
+    # first
+    #get_sample_stats(list(plugin_samples.keys()))
+    get_sample_stats()
 
-    pp(plugin_results)
+    pp(dict(plugin_results))
     __exit__()
 
     '''
-    get_sample_stats()
     get_vcf_metrics()
     '''
 
