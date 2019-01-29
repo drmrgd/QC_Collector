@@ -53,13 +53,23 @@ def get_plugin_config():
         'results_name', None)
     plugin_params['analysis_dir'] = start_plugin_json['runinfo'].get(
         'analysis_dir', None)
-    plugin_params['plugin_results'] = start_plugin_json['runinfo'].get(
-        'results_dir', None)
+
+    # TODO: Fix thius path when we deplor
+    writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tSet plugin results to TS env\033[00m\n')
+    # plugin_params['plugin_results'] = start_plugin_json['runinfo'].get(
+        # 'results_dir', None)
+    plugin_params['plugin_results'] = os.path.dirname(__file__)
 
     # TODO: Fix this path when we deploy
+    writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tSet plugin root directory to TS env\033[00m\n')
     # plugin_params['plugin_root'] = start_plugin_json['runinfo'].get(
         # 'plugin_dir', None)
     plugin_params['plugin_root'] = os.path.dirname(os.path.abspath(__file__))
+
+    plugin_params['plugin_bin'] = os.path.join(plugin_params['plugin_root'], 
+        'scripts')
+    plugin_params['run_type'] = start_plugin_json['plan']['runType']
+
     plugin_params['ir_ip'] = start_plugin_json['runinfo']['plugin']['pluginconfig'].get('ip_address', None)
     plugin_params['ir_token'] = start_plugin_json['runinfo']['plugin']['pluginconfig'].get('api_token', None)
 
@@ -150,8 +160,7 @@ def get_sample_stats():
     writelog('info', 'Getting sample data from "ionstats_alignment" files.')
 
     # TODO: Need to get paths to the <sample>_rawlib.ionstats_alignment.json files.
-    writelog('debug', '============>  Temporary file dir being used.  FIXME'
-            '  <==============')
+    writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tReset the `file_dir variable\033[00m\n')
     # file_dir = plugin_params['analysis_dir']
     file_dir = os.path.join(os.path.dirname(__file__), 'work_dir',
         'resource_files')
@@ -181,72 +190,131 @@ def read_ionstats_file(ifile, sample_type):
     elif sample_type == 'tf':
         return {'TF_1_50AQ17' : jdata['TF_1']['Percent 50Q17']}
 
-def get_vcf_metrics(ip, token):
+def get_vcf_metrics():
     """
     Get the corresponding VCF files for each sample, and from them, extract
     the QC metric data we need.  Will require `ir_api_retrieve.py`, 
     `extract_ir_data.sh`, and `get_metrics_from_vcf.py` helper scripts.
     """
-    vcfs = get_vcfs(ip, token)
-    results = get_metrics_from_vcf(vcfs, dna_only=False)
-    return results
+    
+    vcfdir, vcfs = get_vcfs(plugin_params['ir_ip'], plugin_params['ir_token'],
+        plugin_results['chip_data']['analysis_date'])
+    writelog('debug', 'VCFs to process:')
+    for i, vcf in enumerate(vcfs):
+        writelog(None, '%s:  %s' % (i+1, vcf))
+
+    writelog('info', "Parsing VCFs for metrics.")
+
+    # We need to do something different if we have DNA only VCFs vs having
+    # both DNA + RNA.  As of right now, we can't (don't?) put both RNA and
+    # DNA only specimens on the same chip. So, if there is at least one RNA
+    # sample on the chip, set `dna_only` to False (most typical case).  
+    # Otherwise, set DNA only to true and handle only DNA events.
+    if plugin_params['run_type'] == 'AMPS_DNA_RNA':
+        results = get_metrics_from_vcf(vcfs, dna_only=False)
+    else:
+        results = get_metrics_from_vcf(vcfs, dna_only=True)
+
+    # Splice in the results to the main Plugin_Results dict. If we have DNA only,
+    # then we only can get the MAPD value (the rest is not really relevent). Else,
+    # add in all of the RNA metrics.
+
+    # TODO: Do I need to pad out the results if we have DNA only?  Maybe will get
+    #       key error when I try to output?
+    for sample in results:
+        plugin_results['sample_data'][sample]['DNA'].update(
+            {'MAPD' : results[sample]['MAPD']}
+        )
+        if plugin_params['run_type'] == 'AMPS_DNA_RNA':
+            wanted_metrics = ['Expr_Sum', 'Pool1', 'Pool2', 'RNA_Reads']
+            plugin_results['sample_data'][sample]['RNA'].update(
+                dict((x, results[sample][x]) for x in wanted_metrics)
+            )
 
 def get_vcfs(ip, token, analysis_date):
 
     """
     Use ir_api_retrieve to get a set of VCF files that can be used to generate
-    QC metrics.
-
-    TODO:
-        Get analysis date
-        Get paths of helper scripts.
+    QC metrics. Return a list of filepaths to the VCFs that we are going to 
+    process. 
     """
-    cmd = ['ir_api_retrieve.py', '--ip', ip, '--token', token, '--date_range',
-            analysis_date]
+    cmd = ['%s/ir_api_retrieve.py' % plugin_params['plugin_bin'], '--ip', ip,
+        '--token', token, '--date_range', analysis_date]
+
+    '''
     writelog('info', "Retrieving VCF files for date %s...\n" % analysis_date)
+    writelog('debug', "cmd is:\n\t%s" % ' '.join(cmd))
+
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = p.communicate()
+    p_stdout, p_stderr = p.communicate()
+
+    writelog('debug', 'stdout / stderr from ir_api_retrieve:')
+    writelog(None, p_stderr.decode('ascii'))
+    writelog(None, p_stdout.decode('ascii'))
 
     if p.returncode != 0:
         writelog('error', "There was a problem running `ir_api_retrieve.py`. "
             "Can not continue!\n")
-        writelog(stderr)
+        writelog('error', p_stderr.decode('ascii'))
         sys.exit(p.returncode)
     else:
-        sys.stderr.write('Retrieved VCFs successfully. Getting RNA VCFs...\n')
-        # Use the ir_api_retrieve companion script `extract_ir_data.sh` to unzip
-        # and collect vcfs.  
-        p = subprocess.run('extract_ir_data.sh', stderr=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL)
+    '''
+    writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tShort circuited ir_api_retrieve to speed testing up. Turn back on.\033[00m\n')
 
-        # TODO: Fix the path here.
-        vcfdir = os.path.join(os.getcwd(), 'vcfs')
-        return [os.path.join(vcfdir, x) for x in os.listdir(vcfdir)]
+    writelog('info', 'Retrieved VCFs successfully. Extracting VCFs '
+        'for processing...\n')
+
+    tmpdir = os.path.join(plugin_params['plugin_results'], 'tmp')
+    # TODO: os.mkdir(tmpdir)
+
+    retdata = [f for f in os.listdir(plugin_params['plugin_results']) 
+            if f.endswith('.zip')]
+
+    for f in retdata:
+        os.rename(os.path.abspath(f), os.path.join(os.path.dirname(f), 
+            'tmp', f))
+
+    os.chdir(tmpdir)
+    writelog('debug', 'Current dir is: %s' % os.getcwd())
+
+    # Use the ir_api_retrieve companion script `extract_ir_data.sh` to unzip
+    # and collect vcfs.  
+    p = subprocess.run('extract_ir_data.sh', stderr=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL)
+
+    vcfdir = os.path.join(os.path.dirname(os.path.abspath(tmpdir)), 'vcfs')
+    return vcfdir, [os.path.join(vcfdir, x) for x in os.listdir(vcfdir)]
 
 def get_metrics_from_vcf(vcfs, dna_only):
 
     """
     Use get_metrics_from_vcf.py to obtain the QC metrics from a VCF. Return a 
     list (or tuple, or maybe even dict if it makes sense) of metrics.
-
-    # TODO:
-        get paths of helper scripts.
     """
-    cmd = ['get_metrics_from_vcf.py'] 
+    #TODO: Do we want to generate this file and have it available to the 
+    #      plugin output? Will have to generate a file and parse that instead
+    #      of parsing stdout.
+    cmd = ['%s/get_metrics_from_vcf.py' % plugin_params['plugin_bin']]
     if dna_only:
         cmd.append('--dna_only')
     cmd.extend(vcfs)
 
+    writelog('debug', 'cmd: %s' % ' '.join(cmd))
+
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = p.communicate()
+    p_stdout, p_stderr = p.communicate()
+    writelog('debug', 'cmd stdout:')
+    writelog(None, p_stdout.decode('ascii'))
+    writelog('debug', 'cmd stderr:')
+    writelog(None, p_stderr.decode('ascii'))
 
     if p.returncode != 0:
         writelog('error', "There was a problem running `get_metrics_from_vcf.py`"
             ". Can not continue!\n")
-        writelog(stderr.decode('ascii'))
+        writelog(None,p_stderr.decode('ascii'))
         sys.exit(p.returncode)
     
-    outdata = stdout.decode('ascii').split('\n')
+    outdata = p_stdout.decode('ascii').split('\n')
     header = outdata[0].split()
 
     results = defaultdict(dict)
@@ -255,8 +323,12 @@ def get_metrics_from_vcf(vcfs, dna_only):
         # We can get a blank line at the end; skip it!
         if (len(fields) < 1):
             continue
+
+        # Strip off the version number from the sample name so that we can 
+        # merge the dicts.
+        sample = fields[0].rsplit('_', 1)[0]
         for i,e in enumerate(header):
-            results[fields[0]].update({e : fields[i]})
+            results[sample].update({e : fields[i]})
     return results
 
 def read_json(jfile):
@@ -308,8 +380,11 @@ def plugin_main():
         plugin_params['plugin_root']))
     writelog(None, 'Run name: {}'.format(plugin_params['results_name']))
     writelog(None, 'Results dir: {}'.format(plugin_params['plugin_results']))
-    writelog(None, 'Log level is %s' % loglevel)
+    writelog(None, 'Log level is {}'.format(loglevel))
 
+    writelog(None, 'Run type is: {}'.format(
+        'DNA + RNA' if plugin_params['run_type'] == 'AMPS_DNA_RNA' else 'DNA Only')
+    )
     writelog(None, 'Valid barcodes:')
     count = 0
     for samp in plugin_results['sample_data']:
@@ -324,6 +399,7 @@ def plugin_main():
             count += 1
     writelog('info', 'There are %i samples to process.' % count)
 
+    writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tFix paths for serialized and basecall JSON files.\033[00m\n')
     '''
     TODO: Fix this for plugin
     basecaller_json = os.path.join(plugin_params['analysis_dir'], 
@@ -341,15 +417,19 @@ def plugin_main():
 
     # Start collecting the sample level metrics. Get the mean_read_length_data
     # first
-    #get_sample_stats(list(plugin_samples.keys()))
     get_sample_stats()
 
-    pp(dict(plugin_results))
-    __exit__()
-
-    '''
+    # Now collect the VCFs and get those data. 
     get_vcf_metrics()
-    '''
+
+    pp(dict(plugin_results))
+    __exit__("Stopping after collecting most of metrics.  Now we need to map the"
+        " coverageAnalysis plugin data to finish up.")
+
+    # TODO: Need to clean up temp files from `get_vcf_metrics()` and 
+            # get_coverage_analysis_data(). Store the temp directory path in 
+            # `plugin_params` and then dump the whole dir.  Can also add an opt
+            # to this script to keep temp output files.
 
 if __name__ == "__main__":
     exit(plugin_main())
