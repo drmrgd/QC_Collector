@@ -58,7 +58,10 @@ def get_plugin_config():
     writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tSet plugin results to TS env\033[00m\n')
     # plugin_params['plugin_results'] = start_plugin_json['runinfo'].get(
         # 'results_dir', None)
-    plugin_params['plugin_results'] = os.path.dirname(__file__)
+    plugin_params['plugin_results'] = os.path.abspath(os.path.dirname(__file__))
+    plugin_params['plugin_tmp'] = os.path.join(plugin_params['plugin_results'], 
+        'tmp')
+    os.mkdir(plugin_params['plugin_tmp'])
 
     # TODO: Fix this path when we deploy
     writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tSet plugin root directory to TS env\033[00m\n')
@@ -241,7 +244,6 @@ def get_vcfs(ip, token, analysis_date):
     cmd = ['%s/ir_api_retrieve.py' % plugin_params['plugin_bin'], '--ip', ip,
         '--token', token, '--date_range', analysis_date]
 
-    '''
     writelog('info', "Retrieving VCF files for date %s...\n" % analysis_date)
     writelog('debug', "cmd is:\n\t%s" % ' '.join(cmd))
 
@@ -258,35 +260,28 @@ def get_vcfs(ip, token, analysis_date):
         writelog('error', p_stderr.decode('ascii'))
         sys.exit(p.returncode)
     else:
-    '''
-    writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tShort circuited ir_api_retrieve to speed testing up. Turn back on.\033[00m\n')
+        writelog('info', 'Retrieved VCFs successfully. Extracting VCFs '
+            'for processing...\n')
 
-    writelog('info', 'Retrieved VCFs successfully. Extracting VCFs '
-        'for processing...\n')
+        retdata = [f for f in os.listdir(plugin_params['plugin_results']) 
+                if f.endswith('.zip')]
 
-    tmpdir = os.path.join(plugin_params['plugin_results'], 'tmp')
-    # TODO: os.mkdir(tmpdir)
+        for f in retdata:
+            os.rename(os.path.abspath(f), os.path.join(
+                plugin_params['plugin_tmp'],f)
+            )
+        os.chdir(plugin_params['plugin_tmp'])
+        writelog('debug', 'Current dir is: %s' % os.getcwd())
 
-    retdata = [f for f in os.listdir(plugin_params['plugin_results']) 
-            if f.endswith('.zip')]
+        # Use the ir_api_retrieve companion script `extract_ir_data.sh` to unzip
+        # and collect vcfs.  
+        p = subprocess.run('extract_ir_data.sh', stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL)
 
-    for f in retdata:
-        os.rename(os.path.abspath(f), os.path.join(os.path.dirname(f), 
-            'tmp', f))
-
-    os.chdir(tmpdir)
-    writelog('debug', 'Current dir is: %s' % os.getcwd())
-
-    # Use the ir_api_retrieve companion script `extract_ir_data.sh` to unzip
-    # and collect vcfs.  
-    p = subprocess.run('extract_ir_data.sh', stderr=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL)
-
-    vcfdir = os.path.join(os.path.dirname(os.path.abspath(tmpdir)), 'vcfs')
+        vcfdir = os.path.join(plugin_params['plugin_tmp'], 'vcfs')
     return vcfdir, [os.path.join(vcfdir, x) for x in os.listdir(vcfdir)]
 
 def get_metrics_from_vcf(vcfs, dna_only):
-
     """
     Use get_metrics_from_vcf.py to obtain the QC metrics from a VCF. Return a 
     list (or tuple, or maybe even dict if it makes sense) of metrics.
