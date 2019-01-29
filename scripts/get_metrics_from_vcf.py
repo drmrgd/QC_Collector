@@ -5,6 +5,10 @@
 """
 Input one or more VCF files and generate a table of some important metrics,
 including MAPD score, mapped RNA reads, and RNA pool reads. 
+
+NOTE: This is a local copy of this script for use in the QC_Collector package
+some paths and things will be hardcoded and different from the typical version
+located in the oca_utils package.
 """
 import sys
 import os
@@ -16,13 +20,16 @@ import argparse
 from pprint import pprint as pp
 from distutils.version import LooseVersion
 
-version = '3.10.011119'
+version = '3.10.local'
 
 # Flag Thresholds; Make into args at some point.
 mapd_threshold = 0.5
 rna_reads = 500000
 pool_reads = 100000
 expr_sum = 20000
+
+rna_qc_script = os.path.join(os.path.dirname(__file__), 'match_rna_qc.pl')
+rna_json = os.path.join(os.path.dirname(__file__), 'fusion_panel.json')
 
 def get_args():
     parser = argparse.ArgumentParser(description = __doc__)
@@ -118,7 +125,7 @@ def get_rna_pool_info(vcf):
     '''
     Use the `match_rna_qc.pl` tool to get pool level reads for our output.
     '''
-    p = subprocess.Popen(['match_rna_qc.pl', '-a', vcf], stdout=subprocess.PIPE, 
+    p = subprocess.Popen([rna_qc_script, '-a', '-j', rna_json, vcf], stdout=subprocess.PIPE, 
         stderr=subprocess.PIPE)
     (data,err) = p.communicate()
     ret_res = data.split('\n')
