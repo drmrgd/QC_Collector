@@ -227,7 +227,7 @@ def make_bam_datalink(na_type, run_summary, session, header):
         return api_path
 
 def api_call(url, query, header, batch_type, get_rna, get_dna, name=None):
-    requests.packages.urllib3.disable_warnings()
+    #requests.packages.urllib3.disable_warnings()
     s = requests.Session()
 
     # If we want to get RNA files, we need to get the officially entered RNA 
