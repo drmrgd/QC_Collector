@@ -189,7 +189,7 @@ def get_sample_stats():
 
     # Add in the test fragment data
     plugin_results['chip_data']['tf_1'] = read_ionstats_file(
-        '%s/TFStats.json' % file_dir, 'tf')
+        '%s/basecaller_results/TFStats.json' % file_dir, 'tf')
 
 def read_ionstats_file(ifile, sample_type):
     jdata = read_json(ifile)
@@ -279,8 +279,8 @@ def get_vcfs(ip, token, analysis_date):
 
         # Use the ir_api_retrieve companion script `extract_ir_data.sh` to unzip
         # and collect vcfs.  
-        p = subprocess.run('extract_ir_data.sh', stderr=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL)
+        p = subprocess.call(['%s/extract_ir_data.sh' % plugin_params['plugin_bin']], 
+            stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
         vcfdir = os.path.join(plugin_params['plugin_tmp'], 'vcfs')
     return vcfdir, [os.path.join(vcfdir, x) for x in os.listdir(vcfdir)]
