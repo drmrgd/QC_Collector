@@ -46,10 +46,10 @@ def get_plugin_config():
 
     # XXX
     # TODO: revert this.
-    tmp_results_dir = '/Users/simsdj/Dropbox/git_repos/QC_Collector/work_dir/plugin_out/QC_Collector.9999'
-    os.chdir(tmp_results_dir)
-    args.start_plugin_file = os.path.basename(args.start_plugin_file)
-    args.barcodes_file = os.path.basename(args.barcodes_file)
+    # tmp_results_dir = '/Users/simsdj/Dropbox/git_repos/QC_Collector/work_dir/plugin_out/QC_Collector.9999'
+    #os.chdir(tmp_results_dir)
+    #args.start_plugin_file = os.path.basename(args.start_plugin_file)
+    #args.barcodes_file = os.path.basename(args.barcodes_file)
     ##########################################################################
 
     # Start first with startplugin.json
@@ -64,10 +64,10 @@ def get_plugin_config():
     plugin_params['analysis_dir']     = start_plugin_json['runinfo'].get('analysis_dir', None)
 
     # TODO: Fix thius path when we deplor
-    writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tSet plugin results to TS env\033[00m\n')
-    # plugin_params['plugin_results'] = start_plugin_json['runinfo'].get(
-        # 'results_dir', None)
-    plugin_params['plugin_results'] = tmp_results_dir
+    #writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tSet plugin results to TS env\033[00m\n')
+    plugin_params['plugin_results'] = start_plugin_json['runinfo'].get('results_dir', None)
+    # plugin_params['plugin_results'] = tmp_results_dir
+    ###########################################################################
 
     plugin_params['plugin_tmp'] = os.path.join(plugin_params['plugin_results'], 'tmp')
     if os.path.exists(plugin_params['plugin_tmp']):
@@ -77,12 +77,12 @@ def get_plugin_config():
     os.mkdir(plugin_params['plugin_tmp'])
 
     # TODO: Fix this path when we deploy
-    writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tSet plugin root directory to TS env\033[00m\n')
-    # plugin_params['plugin_root'] = start_plugin_json['runinfo'].get('plugin_dir', None)
-    plugin_params['plugin_root'] = '/Users/simsdj/Dropbox/git_repos/QC_Collector'
-    plugin_params['plugin_bin']  = os.path.join(plugin_params['plugin_root'], 'scripts')
+    #writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tSet plugin root directory to TS env\033[00m\n')
+    plugin_params['plugin_root'] = start_plugin_json['runinfo'].get('plugin_dir', None)
+    # plugin_params['plugin_root'] = '/Users/simsdj/Dropbox/git_repos/QC_Collector'
     ###########################################################################################3
 
+    plugin_params['plugin_bin']  = os.path.join(plugin_params['plugin_root'], 'scripts')
     plugin_params['run_type']    = start_plugin_json['plan']['runType']
     plugin_params['ir_ip']       = start_plugin_json['runinfo']['plugin']['pluginconfig'].get('ip_address', None)
     plugin_params['ir_token']    = start_plugin_json['runinfo']['plugin']['pluginconfig'].get('api_token', None)
@@ -168,11 +168,10 @@ def get_sample_stats():
     writelog('info', 'Getting sample data from "ionstats_alignment" files.')
 
     # TODO: Need to get paths to the <sample>_rawlib.ionstats_alignment.json files.
-    writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tReset the `file_dir variable\033[00m\n')
-    # file_dir = plugin_params['analysis_dir']
-    # file_dir = os.path.join(os.path.dirname(__file__), 'work_dir',
-        # 'resource_files')
-    file_dir = '/Users/simsdj/Dropbox/git_repos/QC_Collector/work_dir/resource_files'
+    #writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tReset the `file_dir variable\033[00m\n')
+    file_dir = plugin_params['analysis_dir']
+    # file_dir = '/Users/simsdj/Dropbox/git_repos/QC_Collector/work_dir/resource_files'
+    ###########################################################################
 
     # Proces all samples in the list. Store DNA and RNA separately.
     # for sample in sample_list:
@@ -468,16 +467,14 @@ def plugin_main():
             count += 1
     writelog('info', 'There are %i samples to process.' % count)
 
-    writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tFix paths for serialized and basecall JSON files.\033[00m\n')
-    '''
-    TODO: Fix this for plugin
+    #TODO: Fix this for plugin
+    #writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tFix paths for serialized and basecall JSON files.\033[00m\n')
     serialized_json = os.path.join(plugin_params['analysis_dir'], 
         'serialized_%s.json' % plugin_params['results_name'])
     basecaller_json = os.path.join(plugin_params['analysis_dir'], 
         'basecaller_results', 'BaseCaller.json')
-    '''
-    serialized_json = '/Users/simsdj/Dropbox/git_repos/QC_Collector/work_dir/resource_files/serialized_Auto_user_S5-MC4-299-20190118.OCAv3.Sequencing.OT2.MSM_441.json'
-    basecaller_json = '/Users/simsdj/Dropbox/git_repos/QC_Collector/work_dir/resource_files/BaseCaller.json'
+    #serialized_json = '/Users/simsdj/Dropbox/git_repos/QC_Collector/work_dir/resource_files/serialized_Auto_user_S5-MC4-299-20190118.OCAv3.Sequencing.OT2.MSM_441.json'
+    #basecaller_json = '/Users/simsdj/Dropbox/git_repos/QC_Collector/work_dir/resource_files/BaseCaller.json'
 
     # Finish getting the chip level metrics.
     get_chip_metrics(basecaller_json, serialized_json)
