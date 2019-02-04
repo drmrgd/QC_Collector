@@ -20,13 +20,9 @@ class QC_Collector(IonPlugin):
     def launch(self, data=None):
         cmd = ['%s/qc_collector_plugin.py' % os.environ['DIRNAME'], '-V', self.version, 
                 'startplugin.json', 'barcodes.json']
-        plugin = subprocess.Popen(cmd, stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE)
-        out, err = plugin.communicate()
-        if plugin.returncode != 0:
-            sys.stderr.write(err)
-            sys.stderr.flush()
-        
+        plugin = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+                
+        plugin.communicate()
         sys.exit(plugin.poll())
 
 if __name__ == '__main__':
