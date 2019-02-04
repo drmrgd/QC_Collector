@@ -88,7 +88,7 @@ def get_plugin_config():
     plugin_params['ir_token']    = start_plugin_json['runinfo']['plugin']['pluginconfig'].get('api_token', None)
 
     # Get some results from some of the data collected so far.
-    regex = re.compile('Auto.*?%s-([0-9]{3})-%s_[0-9]+$' %
+    regex = re.compile(r'^.*?%s-([0-9]{3})-%s_[0-9]+$' %
         (plugin_params['instrument'], plugin_params['plan_name']))
     plugin_results['chip_data']['run_num'] = regex.search(plugin_params['results_name']).group(1)
     plugin_results['chip_data']['analysis_date'] = start_plugin_json['expmeta'].get(
