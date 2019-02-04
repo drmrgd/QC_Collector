@@ -44,22 +44,18 @@
     }
   </style>
 
-  <!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script> -->
   <script src="/site_media/jquery/js/jquery-1.7.2.min.js"></script>
-  
   <script type="text/javascript">
     pluginGET = "";
 
     $(document).ready(() => {
         $.ajax({
-            url : "/rundb/api/v1/plugin/" + TB_plugin.pk + "?format=json",
+            url : "/rundb/api/v1/plugin/" + TB_plugin.pk + "/?format=json",
             dataType : "json",
             type: "GET",
             async: false,
             success:function(data) {
-                console.log(data);
                 pluginGET = data;
-
                 $.each(pluginGET.config, function(key,val) {
                     if (key == "ip_address") {
                         document.getElementById("ip_address").value = val;
@@ -137,21 +133,21 @@
                   + "all fields!");
                 event.preventDefault();
             } else {
-                obj = $('#pluginconfig').serializeObject();
                 console.log("Submitting form data...");
-                console.log(obj);
 
-                pluginGET.config = obj;
+                pluginGET.config = $('#pluginconfig').serializeObject();
                 pluginAPIJSON = JSON.stringify(pluginGET);
-                pluginURL = "/rundb/api/v1/plugin/" +TB_plugin.pk+ "?format=json";
+                pluginURL = "/rundb/api/v1/plugin/" +TB_plugin.pk+ "/?format=json";
                 $.ajax({
                     type: 'PUT',
                     url: pluginURL,
                     contentType: "application/json; charset=utf-8",
                     data: pluginAPIJSON,
-                    success: function(data) {parent.$.fn.colorbox.close();},
-                    dataType: "json"
+                    dataType: "json",
+                    async: false,
+                    success: function(data, status, xhr) {parent.$.fn.colorbox.close();}
                 });
+                console.log(pluginAPIJSON);
             }
         });
     });
