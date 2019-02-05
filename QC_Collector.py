@@ -16,12 +16,12 @@ class QC_Collector(IonPlugin):
     runtypes = [RunType.FULLCHIP, RunType.THUMB, RunType.COMPOSITE]
     runlevels = [RunLevel.DEFAULT]
     depends = ['coverageAnalysis']
+    requires_configuration = True
 
     def launch(self, data=None):
-        cmd = ['%s/qc_collector_plugin.py' % os.environ['DIRNAME'], '-V', self.version, 
-                'startplugin.json', 'barcodes.json']
-        plugin = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-                
+        cmd = ['%s/qc_collector_plugin.py' % os.environ['DIRNAME'], '-V', 
+            self.version, 'startplugin.json', 'barcodes.json']
+        plugin = subprocess.Popen(cmd)
         plugin.communicate()
         sys.exit(plugin.poll())
 
