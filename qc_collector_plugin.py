@@ -55,21 +55,38 @@ def get_plugin_config():
     # Start first with startplugin.json
     start_plugin_json = read_json(args.start_plugin_file)
 
+
+    # First data in should be derived from config.html, to verify that we've 
+    # properly configured the plugin first.
+    pre_config = start_plugin_json['runinfo']['plugin']['pluginconfig']
+    if not pre_config:
+        writelog('error', "You must configure the plugin before you can use it! "
+            "Run the plugin configuration tool from the gear menu first.")
+        sys.exit(1)
+    plugin_params['ir_ip']    = pre_config.get('ip_address', None)
+    plugin_params['ir_token'] = pre_config.get('api_token', None)
+
     instrument = start_plugin_json['expmeta'].get('instrument', None)
-    plugin_params['plugin_name']      = start_plugin_json.get('plugin_name', None)
-    plugin_params['plan_name']        = start_plugin_json['plan'].get('planName', None)
-    plugin_params['instrument']       = plugin_results['chip_data']['instrument'] = instrument
-    plugin_params['results_name']     = start_plugin_json['expmeta'].get('results_name', None)
-    plugin_params['output_file_stem'] = start_plugin_json['expmeta'].get('output_file_name_stem', None)
-    plugin_params['analysis_dir']     = start_plugin_json['runinfo'].get('analysis_dir', None)
+    plugin_params['plugin_name'] = start_plugin_json.get('plugin_name', None)
+    plugin_params['plan_name']   = start_plugin_json['plan'].get(
+        'planName', None)
+    plugin_params['instrument'] = plugin_results['chip_data']['instrument'] = instrument
+    plugin_params['results_name']      = start_plugin_json['expmeta'].get(
+        'results_name', None)
+    plugin_params['output_file_stem']  = start_plugin_json['expmeta'].get(
+        'output_file_name_stem', None)
+    plugin_params['analysis_dir']      = start_plugin_json['runinfo'].get(
+        'analysis_dir', None)
 
     # TODO: Fix thius path when we deplor
     #writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tSet plugin results to TS env\033[00m\n')
-    plugin_params['plugin_results'] = start_plugin_json['runinfo'].get('results_dir', None)
+    plugin_params['plugin_results'] = start_plugin_json['runinfo'].get(
+        'results_dir', None)
     # plugin_params['plugin_results'] = tmp_results_dir
     ###########################################################################
 
-    plugin_params['plugin_tmp'] = os.path.join(plugin_params['plugin_results'], 'tmp')
+    plugin_params['plugin_tmp'] = os.path.join(plugin_params['plugin_results'], 
+        'tmp')
     if os.path.exists(plugin_params['plugin_tmp']):
         writelog('warn', 'Found previous plugin_tmp dir. Removing to make room '
             'for new data.')
@@ -78,19 +95,28 @@ def get_plugin_config():
 
     # TODO: Fix this path when we deploy
     #writelog('warn', '\033[38;5;196m====================>  FIXME!! <===========================\n\t\tSet plugin root directory to TS env\033[00m\n')
-    plugin_params['plugin_root'] = start_plugin_json['runinfo'].get('plugin_dir', None)
+    plugin_params['plugin_root'] = start_plugin_json['runinfo'].get(
+        'plugin_dir', None)
     # plugin_params['plugin_root'] = '/Users/simsdj/Dropbox/git_repos/QC_Collector'
     ###########################################################################################3
 
-    plugin_params['plugin_bin']  = os.path.join(plugin_params['plugin_root'], 'scripts')
+    plugin_params['plugin_bin']  = os.path.join(plugin_params['plugin_root'], 
+        'scripts')
     plugin_params['run_type']    = start_plugin_json['plan']['runType']
-    plugin_params['ir_ip']       = start_plugin_json['runinfo']['plugin']['pluginconfig'].get('ip_address', None)
-    plugin_params['ir_token']    = start_plugin_json['runinfo']['plugin']['pluginconfig'].get('api_token', None)
+    
+    writelog('debug', 'input data: \n\tinstrument: %s\n\tplan name: %s'
+        '\n\tresults name: %s\n' % (
+            plugin_params['instrument'], 
+            plugin_params['plan_name'], 
+            plugin_params['results_name'])
+    )
 
     # Get some results from some of the data collected so far.
     regex = re.compile(r'^.*?%s-([0-9]{3})-%s_[0-9]+$' %
         (plugin_params['instrument'], plugin_params['plan_name']))
-    plugin_results['chip_data']['run_num'] = regex.search(plugin_params['results_name']).group(1)
+    plugin_results['chip_data']['run_num'] = regex.search(
+        plugin_params['results_name']).group(1)
+
     plugin_results['chip_data']['analysis_date'] = start_plugin_json['expmeta'].get(
         'analysis_date', None)
     plugin_results['chip_data'].update(start_plugin_json['pluginconfig'])
