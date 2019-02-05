@@ -1,0 +1,9 @@
+*.bak
+*~
+old
+*.pyc
+*.swp
+*.xlsx
+work_dir
+TODO.rst
+tmp
